@@ -24,35 +24,30 @@ from pyspark.sql import SQLContext
 sqlContext=SQLContext(sc)
 
 
-# In[3]:
-
-input_filename = 's3n://spark-data-dbscan/data.csv'
-eps_record_filename = 's3n://spark-data-dbscan/eps_record.csv'
-
-
 # In[4]:
 
 input_filename = 'data.csv'
 eps_record_filename = 'eps_record.csv'
 
 
+# In[3]:
+
+input_filename = 's3n://spark-data-dbscan/data10k_6attr.csv'
+# input_filename = 's3n://spark-data-dbscan/data.csv'
+eps_range = np.arange(1,10, 1)
+k = 10
+dimension = 3
+
+
+# In[24]:
+
+minPts = k
+headers = ['age', 'height', 'weight', 'blood_sugar_level', 'child', 'exercise_hours']
+
+
 # In[5]:
 
 rdd = sc.textFile(input_filename)         .map(lambda line: line.split(','))         .map(lambda elements: tuple([int(elements[i]) for i in range(len(elements))]))         .cache()
-
-
-# In[6]:
-
-k = 10
-dimension = 3
-minPts = k
-headers = ['age', 'height', 'weight', 'blood_sugar_level', 'child', 'exercise_hours']
-# max_cluster = rdd.count() / k
-# min_cluster = rdd.count() / (2*k-1)
-# loop_for_converge = 20
-# different_combination = 30
-eps_range = np.arange(4,10, 1)
-# eps_range = [10]
 
 
 # In[7]:
@@ -125,7 +120,7 @@ def outputRecord(eps_records):
     f.close()
 
 
-# In[ ]:
+# In[8]:
 
 min_cost_rdd = None
 min_cost = float('inf')
@@ -134,7 +129,7 @@ min_eps = 0
 eps_records=[] # [eps, number of cluster, number of noise point, error within cluster, error of noise, total error]
 
 
-# In[ ]:
+# In[30]:
 
 vertics = sqlContext.createDataFrame(rdd.map(lambda pt: (pt, "pt")),['id','name'])
 for eps in eps_range:
@@ -150,12 +145,10 @@ for eps in eps_range:
     sc.setCheckpointDir("checkpoint") # required for connectedComponents version > 0.3
     result = graph.connectedComponents()
     resultRDD = result.rdd.map(tuple).map(lambda (row_pt, name, component):(tuple(row_pt),component))
-    # TODO left outer join the original vertic point so that preserve 2 point with same location
-    # FullResult = rdd.leftOuterJoin(resultRDD)
     groupRDD= resultRDD.map(lambda (id_pt,component):(component,[id_pt])).reduceByKey(lambda pt1,pt2:pt1+pt2)
-    noiseRDD= groupRDD.filter(lambda (component, pts):len(pts)<k).flatMap(lambda (component, pts):pts).cache()
+    noiseRDD= groupRDD.filter(lambda (component, pts):len(pts)<k or component is None).flatMap(lambda (component, pts):pts).cache()
     print "noise: ",noiseRDD.count()
-    clusterRDD = groupRDD.filter(lambda (component, pts):len(pts)>=k)
+    clusterRDD = groupRDD.filter(lambda (component, pts):len(pts)>=k and not component is None)
     print "number of cluster:", clusterRDD.count()
     if (clusterRDD.count()==0):
         cluster_error = 0
@@ -181,7 +174,7 @@ for eps in eps_range:
     outputRecord(eps_records)
 
 
-# In[ ]:
+# In[29]:
 
 print "eps\tno. of cluster\tno. of noise point\terror within cluster\terror of noise\ttotal error"
 for record in eps_records:
