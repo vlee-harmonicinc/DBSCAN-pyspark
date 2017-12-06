@@ -1,19 +1,47 @@
+
+# coding: utf-8
+
+# ## to import GraphFrame
+# ##### download and unzip tar spark-1.6.3-bin-hadoop2.6
+# ##### export SPARK_HOME="/usr/local/bin/spark-1.6.3-bin-hadoop2.6"
+# ##### export PATH=/home/vagrant/hadoop
+
+# In[1]:
+
 import random, operator, subprocess
 from pyspark.sql.types import *
 from graphframes import *
 import numpy as np
 from datetime import datetime, timedelta
 
+
+# In[2]:
+
 from pyspark import SparkContext
 sc =SparkContext()
 
 from pyspark.sql import SQLContext
-sqlContext = SQLContext(sc)
+sqlContext=SQLContext(sc)
 
-rdd = sc.textFile('file:///root/data.csv') \
-        .map(lambda line: line.split(',')) \
-        .map(lambda elements: tuple([int(elements[i]) for i in range(len(elements))])) \
-        .cache()
+
+# In[3]:
+
+input_filename = 's3n://spark-data-dbscan/data.csv'
+eps_record_filename = 's3n://spark-data-dbscan/eps_record.csv'
+
+
+# In[4]:
+
+input_filename = 'data.csv'
+eps_record_filename = 'eps_record.csv'
+
+
+# In[5]:
+
+rdd = sc.textFile(input_filename)         .map(lambda line: line.split(','))         .map(lambda elements: tuple([int(elements[i]) for i in range(len(elements))]))         .cache()
+
+
+# In[6]:
 
 k = 10
 dimension = 3
@@ -23,8 +51,11 @@ headers = ['age', 'height', 'weight', 'blood_sugar_level', 'child', 'exercise_ho
 # min_cluster = rdd.count() / (2*k-1)
 # loop_for_converge = 20
 # different_combination = 30
-eps_range = np.arange(4,10, 0.5)
+eps_range = np.arange(4,10, 1)
 # eps_range = [10]
+
+
+# In[7]:
 
 def dist(x, y):
     return sum([abs(x[i]-y[i]) for i in range(dimension)])
@@ -84,22 +115,33 @@ def assign_nearest(pt):
             nearest_cluster=centroid
     return (pt, nearest_cluster, min_error)
 
+def outputRecord(eps_records):
+    f = open(eps_record_filename, 'w')
+    for record in eps_records:
+        line = ""
+        for number in record:
+            line =line+ str(number) + ","
+        f.write(line+"\n")
+    f.close()
+
+
+# In[ ]:
+
 min_cost_rdd = None
 min_cost = float('inf')
 min_eps = 0
 
 eps_records=[] # [eps, number of cluster, number of noise point, error within cluster, error of noise, total error]
 
+
+# In[ ]:
+
+vertics = sqlContext.createDataFrame(rdd.map(lambda pt: (pt, "pt")),['id','name'])
 for eps in eps_range:
     start_loop_time = datetime.now()
     print "for eps=", eps
-    ptsFullNeighborRDD=rdd.cartesian(rdd)\
-                            .filter(lambda (pt1,pt2): dist(pt1,pt2)<eps)\
-                            .map(lambda (pt1,pt2):(pt1,[pt2]))\
-                            .reduceByKey(lambda pts1,pts2: pts1+pts2)\
-                            .filter(lambda (pt, pts): len(pts)>=minPts)
+    ptsFullNeighborRDD=rdd.cartesian(rdd)                            .filter(lambda (pt1,pt2): dist(pt1,pt2)<eps)                            .map(lambda (pt1,pt2):(pt1,[pt2]))                            .reduceByKey(lambda pts1,pts2: pts1+pts2)                            .filter(lambda (pt, pts): len(pts)>=minPts)
     edgeRDD=ptsFullNeighborRDD.flatMap(lambda (pt,pts):flattenPair(pt,pts))
-    vertics = sqlContext.createDataFrame(rdd.map(lambda pt: (pt, "pt")),['id','name'])
     if (edgeRDD.count()==0):
         print "cannot form cluster for this density"
         continue
@@ -136,6 +178,10 @@ for eps in eps_range:
     if (total_error<min_cost):
         min_eps = eps
         min_cost=total_error
+    outputRecord(eps_records)
+
+
+# In[ ]:
 
 print "eps\tno. of cluster\tno. of noise point\terror within cluster\terror of noise\ttotal error"
 for record in eps_records:
@@ -145,10 +191,3 @@ for record in eps_records:
     print line
 print min_eps
 
-f = open('eps_record.csv', 'w')
-for record in eps_records:
-    line = ""
-    for number in record:
-        line =line+ str(number) + ","
-    f.write(line+"\n")
-f.close()
