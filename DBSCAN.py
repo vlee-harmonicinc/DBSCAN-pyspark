@@ -7,6 +7,9 @@ from datetime import datetime, timedelta
 from pyspark import SparkContext
 sc =SparkContext()
 
+from pyspark.sql import SQLContext
+sqlContext = SQLContext(sc)
+
 rdd = sc.textFile('file:///root/data.csv') \
         .map(lambda line: line.split(',')) \
         .map(lambda elements: tuple([int(elements[i]) for i in range(len(elements))])) \
