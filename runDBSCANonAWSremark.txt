@@ -5,22 +5,18 @@
 # runable
 us-east-1b, regid = r-0e31106546137ce91
 
-# login
 ec2-184-73-64-171.compute-1.amazonaws.com:8080
+# login
 ssh -i spark_project.pem ec2-user@ec2-184-73-64-171.compute-1.amazonaws.com
-
 ./spark-ec2 -k spark_project -i spark_project.pem login DBSCAN_cluster
 
 # copy/ upload code DBSCAN.py and data.csv to master
-wget https://raw.githubusercontent.com/htleeab/test/master/data.csv
 wget https://raw.githubusercontent.com/htleeab/test/master/DBSCAN.py
-~/spark-ec2/copy-dir
 
 # add pyspark, spark-submit and hdfs to env
 export PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin:/opt/aws/bin:/root/scala/bin:/root/spark/bin:/root/persistent-hdfs/bin
 
 spark-submit --packages graphframes:graphframes:0.5.0-spark1.6-s_2.11 DBSCAN.py
-
 if fail to import graphframes
 	download from office website
 	mv dbf26be7d579c1806e5862adaf19553e61e1d9c0.zip graphframes.zip
