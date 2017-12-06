@@ -1,11 +1,12 @@
-
 import random, operator, subprocess
 from pyspark.sql.types import *
 from graphframes import *
 import numpy as np
 from datetime import datetime, timedelta
 
-#rdd = sc.textFile('data-smaller.csv') \
+from pyspark import SparkContext
+sc =SparkContext()
+
 rdd = sc.textFile('data.csv') \
         .map(lambda line: line.split(',')) \
         .map(lambda elements: tuple([int(elements[i]) for i in range(len(elements))])) \
