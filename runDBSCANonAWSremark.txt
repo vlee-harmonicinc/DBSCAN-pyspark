@@ -1,7 +1,6 @@
-export AWS_ACCESS_KEY_ID=AKIAIW6ZBHHGHBFUW72A
-export AWS_SECRET_ACCESS_KEY=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
 
 # launch cluster
+./spark-ec2 -k spark_project -i spark_project.pem -s 9 -v 1.6.0 -t m4.xlarge launch DBSCAN_cluster
 ./spark-ec2 -k spark_project -i spark_project.pem -s 2 -v 1.6.0 launch DBSCAN_cluster
 # runable
 us-east-1b, regid = r-0e31106546137ce91
