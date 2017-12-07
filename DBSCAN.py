@@ -6,7 +6,7 @@
 # ##### export SPARK_HOME="/usr/local/bin/spark-1.6.3-bin-hadoop2.6"
 # ##### export PATH=/home/vagrant/hadoop
 
-# In[1]:
+# In[2]:
 
 import random, operator, subprocess
 from pyspark.sql.types import *
@@ -15,7 +15,7 @@ import numpy as np
 from datetime import datetime, timedelta
 
 
-# In[2]:
+# In[ ]:
 
 from pyspark import SparkContext
 sc =SparkContext()
@@ -24,22 +24,25 @@ from pyspark.sql import SQLContext
 sqlContext=SQLContext(sc)
 
 
-# In[4]:
-
-input_filename = 'data.csv'
-eps_record_filename = 'eps_record.csv'
-
-
 # In[3]:
 
-input_filename = 's3n://spark-data-dbscan/data10k_6attr.csv'
-# input_filename = 's3n://spark-data-dbscan/data.csv'
-eps_range = np.arange(1,10, 1)
 k = 10
 dimension = 3
+input_filename = 'data.csv'
+output_file = 'output.csv'
+eps_record_filename = 'eps_record.csv'
+eps_range = np.arange(6,7, 1)
 
 
-# In[24]:
+# In[ ]:
+
+input_filename = 's3n://spark-data-dbscan/data10k_6attr.csv'
+output_file = 'output.csv'
+dimension = 6
+eps_range = np.arange(1,10, 1)
+
+
+# In[4]:
 
 minPts = k
 headers = ['age', 'height', 'weight', 'blood_sugar_level', 'child', 'exercise_hours']
@@ -50,7 +53,7 @@ headers = ['age', 'height', 'weight', 'blood_sugar_level', 'child', 'exercise_ho
 rdd = sc.textFile(input_filename)         .map(lambda line: line.split(','))         .map(lambda elements: tuple([int(elements[i]) for i in range(len(elements))]))         .cache()
 
 
-# In[7]:
+# In[6]:
 
 def dist(x, y):
     return sum([abs(x[i]-y[i]) for i in range(dimension)])
@@ -74,9 +77,13 @@ def calculate_pts_sum(pts):
             pts_sum[i] += pt[i]
     return pts_sum
 
-def write_to_output(assignment, centroids):
-    tmp = assignment.flatMap(lambda (cluster, pts): [centroids[cluster] for _ in range(len(pts))])
-    sqlContext.createDataFrame(tmp, headers[:dimension]).save('output.txt', mode='overwrite')
+def write_to_output(outputRDD):
+    '''
+    outputRDD = (pt, anonymized pt)
+    '''
+    sqlContext.createDataFrame(outputRDD.map(lambda (pt,np):pt+nt), headers[:dimension]+headers[:dimension]).save('output.csv', mode='overwrite')
+    #tmp = assignment.flatMap(lambda (cluster, pts): [centroids[cluster] for _ in range(len(pts))])
+    #sqlContext.createDataFrame(tmp, headers[:dimension]).save('output.txt', mode='overwrite')
     
 def calc_error(cluster_data):
     '''
@@ -93,6 +100,23 @@ def calc_error(cluster_data):
     for pt in pts:
         error = error + dist(pt,avg_di)
     return (tuple(avg_di), error)
+
+
+def anonymize(cluster_data):
+    '''
+    cluster_data : (cluster_id, [list of row of pts])
+    '''
+    #print cluster_data
+    pts=cluster_data[1]
+    pts_sum= [0 for _ in range(dimension)]
+    for pt in pts:
+        for i in range(dimension):
+            pts_sum[i]=pts_sum[i]+pt[i]
+    avg_di = [pts_sum[i]/float(len(cluster_data)) for i in range(dimension)]
+    result_list=list()
+    for pt in pts:
+        result_list.append([tuple(pt), tuple(avg_di)])
+    return result_list
 
 def flattenPair(pt,pts):
     # print pts
@@ -120,7 +144,7 @@ def outputRecord(eps_records):
     f.close()
 
 
-# In[8]:
+# In[7]:
 
 min_cost_rdd = None
 min_cost = float('inf')
@@ -129,7 +153,7 @@ min_eps = 0
 eps_records=[] # [eps, number of cluster, number of noise point, error within cluster, error of noise, total error]
 
 
-# In[30]:
+# In[8]:
 
 vertics = sqlContext.createDataFrame(rdd.map(lambda pt: (pt, "pt")),['id','name'])
 for eps in eps_range:
@@ -171,10 +195,13 @@ for eps in eps_range:
     if (total_error<min_cost):
         min_eps = eps
         min_cost=total_error
+        cluster_anonRDD = clusterRDD.flatMap(anonymize)
+        outputRDD=noiseRDD.map(assign_nearest).map(pt,nc).union(cluster_anonRDD)
+        write_to_output(outputRDD)
     outputRecord(eps_records)
 
 
-# In[29]:
+# In[ ]:
 
 print "eps\tno. of cluster\tno. of noise point\terror within cluster\terror of noise\ttotal error"
 for record in eps_records:
