@@ -37,7 +37,7 @@ eps_range = np.arange(6,7, 1)
 # In[ ]:
 
 input_filename = 's3n://spark-data-dbscan/data10k_6attr.csv'
-output_file = 'output.csv'
+output_filename = 's3n://spark-data-dbscan/output.csv'
 dimension = 6
 eps_range = np.arange(10,20, 1)
 
@@ -81,7 +81,8 @@ def write_to_output(outputRDD):
     '''
     outputRDD = (pt, anonymized pt)
     '''
-    sqlContext.createDataFrame(outputRDD.map(lambda (pt,np):pt+nt), headers[:dimension]+headers[:dimension]).save('output.csv', mode='overwrite')
+    #sqlContext.createDataFrame(outputRDD.map(lambda (pt,an_pt):pt+an_pt), headers[:dimension]+headers[:dimension]).save('output.csv', mode='overwrite')
+    sqlContext.createDataFrame(outputRDD, ["pt","an_pt"]).write.format('json').save(output_filename, mode='overwrite')
     #tmp = assignment.flatMap(lambda (cluster, pts): [centroids[cluster] for _ in range(len(pts))])
     #sqlContext.createDataFrame(tmp, headers[:dimension]).save('output.txt', mode='overwrite')
     
