@@ -81,7 +81,7 @@ def write_to_output(outputRDD):
     '''
     outputRDD = (pt, anonymized pt)
     '''
-    sqlContext.createDataFrame(outputRDD.map(lambda (pt, an_pt):(pt, an_pt.append(pt[dimension+1]))), ["pt","an_pt"]).write.format('json').save(output_filename, mode='overwrite')
+    sqlContext.createDataFrame(outputRDD.map(lambda (pt, an_pt):(pt, an_pt+tuple(pt[dimension+1]))), ["pt","an_pt"]).write.format('json').save(output_filename, mode='overwrite')
     
 def calc_error(cluster_data):
     '''
@@ -134,6 +134,7 @@ def assign_nearest(pt):
 
 def outputRecord(eps_records):
     f = open(eps_record_filename, 'w')
+    f.write('eps,number of cluster,number of noise,error within clusters,error of noise,total error\n')
     for record in eps_records:
         line = ""
         for number in record:
@@ -149,7 +150,6 @@ min_cost = float('inf')
 min_eps = 0
 
 eps_records=[] # [eps, number of cluster, number of noise point, error within cluster, error of noise, total error]
-eps_records=['eps', 'number of cluster', 'number of noise', 'error within clusters', 'error of noise', 'total error']
 
 
 # In[ ]:
