@@ -149,6 +149,7 @@ min_cost = float('inf')
 min_eps = 0
 
 eps_records=[] # [eps, number of cluster, number of noise point, error within cluster, error of noise, total error]
+eps_records=['eps', 'number of cluster', 'number of noise', 'error within clusters', 'error of noise', 'total error']
 
 
 # In[ ]:
@@ -169,6 +170,7 @@ for eps in eps_range:
     graph = GraphFrame(vertics, edges)
     sc.setCheckpointDir("checkpoint") # required for connectedComponents version > 0.3
     result = graph.connectedComponents()
+    # result = graph.stronglyConnectedComponents(maxIter=10)
     resultRDD = result.rdd.map(tuple).map(lambda (row_pt, name, component):(tuple(row_pt),component))
     groupRDD= resultRDD.map(lambda (id_pt,component):(component,[id_pt])).reduceByKey(lambda pt1,pt2:pt1+pt2).cache()
     noiseRDD= groupRDD.filter(lambda (component, pts):len(pts)<k or component is None).flatMap(lambda (component, pts):pts).cache()
