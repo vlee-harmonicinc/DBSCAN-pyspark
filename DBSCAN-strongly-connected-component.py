@@ -168,7 +168,8 @@ for eps in eps_range:
     edges = sqlContext.createDataFrame(edgeRDD,['src','dst'])
     graph = GraphFrame(vertics, edges)
     sc.setCheckpointDir("checkpoint") # required for connectedComponents version > 0.3
-    result = graph.connectedComponents()
+    # result = graph.connectedComponents()
+    result = graph.stronglyConnectedComponents(maxIter=10)
     resultRDD = result.rdd.map(tuple).map(lambda (row_pt, name, component):(tuple(row_pt),component))
     groupRDD= resultRDD.map(lambda (id_pt,component):(component,[id_pt])).reduceByKey(lambda pt1,pt2:pt1+pt2)
     noiseRDD= groupRDD.filter(lambda (component, pts):len(pts)<k or component is None).flatMap(lambda (component, pts):pts).cache()
