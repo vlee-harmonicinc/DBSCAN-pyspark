@@ -42,18 +42,18 @@ dimension = 6
 eps_range = np.arange(1,10, 1)
 
 
-# In[4]:
+# In[5]:
 
 minPts = k
 headers = ['age', 'height', 'weight', 'blood_sugar_level', 'child', 'exercise_hours']
 
 
-# In[5]:
+# In[6]:
 
 rdd = sc.textFile(input_filename)         .map(lambda line: line.split(','))         .map(lambda elements: tuple([int(elements[i]) for i in range(len(elements))]))         .cache()
 
 
-# In[6]:
+# In[7]:
 
 def dist(x, y):
     return sum([abs(x[i]-y[i]) for i in range(dimension)])
@@ -144,7 +144,7 @@ def outputRecord(eps_records):
     f.close()
 
 
-# In[7]:
+# In[8]:
 
 min_cost_rdd = None
 min_cost = float('inf')
@@ -153,7 +153,7 @@ min_eps = 0
 eps_records=[] # [eps, number of cluster, number of noise point, error within cluster, error of noise, total error]
 
 
-# In[8]:
+# In[10]:
 
 vertics = sqlContext.createDataFrame(rdd.map(lambda pt: (pt, "pt")),['id','name'])
 for eps in eps_range:
@@ -163,6 +163,9 @@ for eps in eps_range:
     edgeRDD=ptsFullNeighborRDD.flatMap(lambda (pt,pts):flattenPair(pt,pts))
     if (edgeRDD.count()==0):
         print "cannot form cluster for this density"
+        time_delta = datetime.now() - start_loop_time    
+        eps_records.append([eps, 0, rdd.count(), 0, float('inf'), flost('inf'), time_delta])
+        outputRecord(eps_records)
         continue
     edges = sqlContext.createDataFrame(edgeRDD,['src','dst'])
     graph = GraphFrame(vertics, edges)
@@ -192,13 +195,16 @@ for eps in eps_range:
     #record time
     time_delta = datetime.now() - start_loop_time    
     eps_records.append([eps, clusterRDD.count(), noiseRDD.count(), cluster_error, noise_error, total_error, time_delta])
+    outputRecord(eps_records)
     if (total_error<min_cost):
         min_eps = eps
         min_cost=total_error
-        cluster_anonRDD = clusterRDD.flatMap(anonymize)
+        cluster_anonRDD = clusterRDD.flatMap(anonymize).cache()
+        cluster_anonRDD.take(3)
+        noiseRDD.take(3)
+        noiseRDD.map(assign_nearest).map(pt,nc).take(3)
         outputRDD=noiseRDD.map(assign_nearest).map(pt,nc).union(cluster_anonRDD)
         write_to_output(outputRDD)
-    outputRecord(eps_records)
 
 
 # In[ ]:
