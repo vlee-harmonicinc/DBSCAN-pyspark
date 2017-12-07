@@ -39,7 +39,7 @@ eps_range = np.arange(6,7, 1)
 input_filename = 's3n://spark-data-dbscan/data10k_6attr.csv'
 output_file = 'output.csv'
 dimension = 6
-eps_range = np.arange(1,10, 1)
+eps_range = np.arange(10,20, 1)
 
 
 # In[5]:
@@ -164,7 +164,7 @@ for eps in eps_range:
     if (edgeRDD.count()==0):
         print "cannot form cluster for this density"
         time_delta = datetime.now() - start_loop_time    
-        eps_records.append([eps, 0, rdd.count(), 0, float('inf'), flost('inf'), time_delta])
+        eps_records.append([eps, 0, rdd.count(), 0, float('inf'), float('inf'), time_delta])
         outputRecord(eps_records)
         continue
     edges = sqlContext.createDataFrame(edgeRDD,['src','dst'])
@@ -201,9 +201,8 @@ for eps in eps_range:
         min_cost=total_error
         cluster_anonRDD = clusterRDD.flatMap(anonymize).cache()
         cluster_anonRDD.take(3)
-        noiseRDD.take(3)
-        noiseRDD.map(assign_nearest).map(pt,nc).take(3)
-        outputRDD=noiseRDD.map(assign_nearest).map(pt,nc).union(cluster_anonRDD)
+        noiseRDD.map(assign_nearest).map(lambda (pt,nc,e):(pt,nc)).take(3)
+        outputRDD=noiseRDD.map(assign_nearest).map(lambda (pt,nc,e):(pt,nc)).union(cluster_anonRDD)
         write_to_output(outputRDD)
 
 
