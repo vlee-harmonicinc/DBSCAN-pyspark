@@ -6,7 +6,7 @@
 # ##### export SPARK_HOME="/usr/local/bin/spark-1.6.3-bin-hadoop2.6"
 # ##### export PATH=/home/vagrant/hadoop
 
-# In[ ]:
+# In[1]:
 
 import random, operator, subprocess
 from pyspark.sql.types import *
@@ -24,11 +24,11 @@ from pyspark.sql import SQLContext
 sqlContext=SQLContext(sc)
 
 
-# In[ ]:
+# In[12]:
 
 k = 10
-dimension = 3
-input_filename = 'data.csv'
+dimension = 2
+input_filename = 'data-smaller.csv'
 output_file = 'output.csv'
 eps_record_filename = 'eps_record.csv'
 eps_range = np.arange(6,7, 1)
@@ -37,23 +37,23 @@ eps_range = np.arange(6,7, 1)
 # In[ ]:
 
 input_filename = 's3n://spark-data-dbscan/data10k_6attr.csv'
-output_filename = 's3n://spark-data-dbscan/output.csv'
+output_folder = 's3n://spark-data-dbscan/output'
 dimension = 6
 eps_range = np.arange(10,20, 1)
 
 
-# In[ ]:
+# In[3]:
 
 minPts = k
 headers = ['age', 'height', 'weight', 'blood_sugar_level', 'child', 'exercise_hours']
 
 
-# In[ ]:
+# In[4]:
 
 rdd = sc.textFile(input_filename)         .map(lambda line: line.split(','))         .map(lambda elements: tuple([int(elements[i]) for i in range(len(elements))]))         .cache()
 
 
-# In[ ]:
+# In[23]:
 
 def dist(x, y):
     return sum([abs(x[i]-y[i]) for i in range(dimension)])
@@ -81,7 +81,8 @@ def write_to_output(outputRDD):
     '''
     outputRDD = (pt, anonymized pt)
     '''
-    sqlContext.createDataFrame(outputRDD.map(lambda (pt, an_pt):(pt, an_pt+tuple(pt[dimension+1]))), ["pt","an_pt"]).write.format('json').save(output_filename, mode='overwrite')
+    print outputRDD.take(3)
+    sqlContext.createDataFrame(outputRDD.map(lambda (pt, an_pt):(pt, tuple(list(an_pt)+[pt[dimension]]))), ["pt","an_pt"])        .write        .format('json')        .save(output_folder, mode='overwrite')
     
 def calc_error(cluster_data):
     '''
@@ -143,7 +144,7 @@ def outputRecord(eps_records):
     f.close()
 
 
-# In[ ]:
+# In[10]:
 
 min_cost_rdd = None
 min_cost = float('inf')
@@ -192,8 +193,7 @@ for eps in eps_range:
         noise_error =  noiseRDD.map(assign_nearest).map(lambda (pt,nc,e):e).reduce(lambda e1,e2:e1+e2)
     print "error of noises: ", noise_error
     total_error = noise_error + cluster_error
-    print "total error: ", total_error
-    
+    print "total error: ", total_error    
     #record time
     time_delta = datetime.now() - start_loop_time    
     eps_records.append([eps, number_of_cluster, number_of_noise, cluster_error, noise_error, total_error, time_delta])
