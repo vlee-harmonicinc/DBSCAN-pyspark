@@ -81,7 +81,6 @@ def write_to_output(outputRDD):
     '''
     outputRDD = (pt, anonymized pt)
     '''
-    print outputRDD.take(3)
     sqlContext.createDataFrame(outputRDD.map(lambda (pt, an_pt):(pt, tuple(list(an_pt)+[pt[dimension]]))), ["pt","an_pt"])        .write        .format('json')        .save(output_folder, mode='overwrite')
     
 def calc_error(cluster_data):
